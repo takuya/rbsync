@@ -76,7 +76,7 @@ class TestRbsync < Test::Unit::TestCase
         Dir.mkdir("old")
         Dir.mkdir("new")
         open("./old/test.txt", "w+"){|f| 1000.times{f.puts("test")}}
-        open("./new/test.txt", "w+"){|f| 1000.times{f.puts("test")}}
+        open("./new/test.txt", "w+"){|f| 1000.times{f.puts("tests")}}
         rsync = RbSync.new
         rsync.sync("old","new",{:check_hash=>true,:hash_limit_size=>1024})
         assert FileUtils.cmp("old/test.txt","new/test.txt")
@@ -92,7 +92,7 @@ class TestRbsync < Test::Unit::TestCase
         open("./new/test.txt", "w+"){|f| 2048.times{f.write("a")}}
         rsync = RbSync.new
         rsync.sync("old","new",{:check_hash=>true,:hash_limit_size=>1024})
-        assert FileUtils.cmp("old/test.txt","new/test.txt")  == false
+        assert FileUtils.cmp("old/test.txt","new/test.txt") == false
       end
     end
   end

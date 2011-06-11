@@ -263,6 +263,3 @@ class RbSync
 end
 
 
-require 'tmpdir'
-require 'find'
-require 'pp'
