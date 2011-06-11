@@ -27,6 +27,7 @@ Gem::Specification.new do |s|
     "lib/rbsync.rb",
     "new/test.txt",
     "old/test.txt",
+    "rbsync.gemspec",
     "test/helper.rb",
     "test/test_rbsync.rb"
   ]
