@@ -1,6 +1,6 @@
 = rbsync
 
-Description goes here.
+rbsync is sync files utility
 
 == Contributing to rbsync
  

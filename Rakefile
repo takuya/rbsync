@@ -17,8 +17,8 @@ Jeweler::Tasks.new do |gem|
   gem.name = "rbsync"
   gem.homepage = "http://github.com/takuya/rbsync"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = %Q{rbsync is sync file utility}
+  gem.description = %Q{rbsync is sync file utility.this can sync directory even if filename differed.checking content insted.}
   gem.email = "takuya.1st@gmail"
   gem.authors = ["takuya"]
   # dependencies defined in Gemfile
