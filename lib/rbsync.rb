@@ -3,9 +3,42 @@
 #ファイルの同期
 
 require 'fileutils'
-STDOUT.sync = true
 $KCODE='u'
 
+# Synchronize files src to dest . 
+# this class can sync files and recuresively
+# options are
+# +sync update file only
+# +no overwrite when dist files are newer than src
+# +sync by file digest hash , not useing filename
+#
+# == usage
+# === mirror files
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.sync( "src", "dest" )
+# === mirror updated only files
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.sync( "src", "dest",{:update=>true} )
+# ==special usage , sync by file cotetets 
+# if directory has a same file with different file name. insted of filename , sync file by file hash
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.sync( "src", "dest",{:check_hash=>true} )
+# === directory has very large file ,such as mpeg video
+# checking only head of 1024*1024 bytes to distinguish src / dest files for speed up.
+# FileUtils::cmp is reading whole file. This will be so slow for large file
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
+# 
+# === sync both updated files
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.update = true
+#           rsync.sync( "src", "dest" )
+#           rsync.sync( "dest", "src" )
 class RbSync
   attr_accessor :conf
   def initialize()
@@ -217,6 +250,3 @@ class RbSync
   alias update= updated_file_only=
   alias newer=   updated_file_only=
 end
-
-
-
