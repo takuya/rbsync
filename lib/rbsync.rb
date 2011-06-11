@@ -1,9 +1,10 @@
+# encoding: utf-8
+
 #rbsyncの改良版。
 # ファイル名でなくハッシュ値を計算してファイルを同期する。
 #ファイルの同期
 
 require 'fileutils'
-$KCODE='u'
 
 # Synchronize files src to dest . 
 # this class can sync files and recuresively
@@ -35,9 +36,9 @@ $KCODE='u'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true} )
 # === directory has very large file ,such as mpeg video
-# checking only head of 1024*1024 bytes to distinguish src / dest files for speed up.
-# FileUtils::cmp is reading whole file. This will be so slow for large file
-# 巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする
+# checking only head of 1024*1024 bytes to distinguish src / dest files.this is for speed up.
+# FileUtils::cmp is reading whole file. large file will take time.With :hash_limit_size Rbsync read only head of files for comparing.
+# 巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする.写真とかはコレで十分
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
@@ -46,7 +47,7 @@ $KCODE='u'
 # 双方向に同期させたい場合は２回起動する．
 #           require 'rbsync'
 #           rsync =RbSync.new
-#           rsync.update = true
+#           rsync.updated_file_only = true
 #           rsync.sync( "src", "dest" )
 #           rsync.sync( "dest", "src" )
 class RbSync
@@ -172,7 +173,7 @@ class RbSync
   # ・ディレクトリ内のファイル一覧を作る
   # ・ファイル一覧を比較する
   # ・同期するファイル一覧を作って転送する
-  def sync_nornally(src,dest,options={})
+  def sync_normally(src,dest,options={})
     files = self.find_files(src,dest,options)
     puts "同期対象のファイルはありません" if self.debug? && files.size==0
     return true if files.size == 0
@@ -197,15 +198,16 @@ class RbSync
   end
   def sync(src,dest,options={})
     options[:excludes] = (self.excludes + [options[:excludes]]).flatten.uniq if options[:excludes]
-    options[:update]   = @conf[:update] if options[:update] == nil
+    options[:update]   = @conf[:update]                                      if options[:update] == nil
     options[:check_hash] = options[:check_hash] and @conf[:check_hash]
-    options[:hash_limit_size] = @conf[:hash_limit_size] if options[:hash_limit_size] == nil
+    options[:hash_limit_size] = @conf[:hash_limit_size]                      if options[:hash_limit_size] == nil
     if options[:check_hash]
           return self.sync_by_hash(src,dest,options)
     else
-          return self.sync_nornally(src,dest,options)
+          return self.sync_normally(src,dest,options)
     end
   end
+  
   #for setting
 
   def debug_mode?
