@@ -14,26 +14,36 @@ $KCODE='u'
 #
 # == usage
 # === mirror files
+# 同期元と同期先を同じにする
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest" )
 # === mirror updated only files
+# 同期先に、同期元と同名のファイルがあったら、更新日時を調べる。新しいモノだけをコピーする．
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:update=>true} )
+# === using exclude pattern
+# 同期先と同期元を同じにする，但し、*.rb / *.log の拡張子は除外する．
+#           require 'rbsync'
+#           rsync =RbSync.new
+#           rsync.sync( "src", "dest",{:excludes=>["*.log","*.bak"]} )
 # ==special usage , sync by file cotetets 
 # if directory has a same file with different file name. insted of filename , sync file by file hash
+# ディレクトリ内のファイル名をうっかり変えてしまったときに使う．ファイル名でなく、ファイルの中身を比較して同期する．
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true} )
 # === directory has very large file ,such as mpeg video
 # checking only head of 1024*1024 bytes to distinguish src / dest files for speed up.
 # FileUtils::cmp is reading whole file. This will be so slow for large file
+# 巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
 # 
 # === sync both updated files
+# 双方向に同期させたい場合は２回起動する．
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.update = true
@@ -86,8 +96,8 @@ class RbSync
     files = (files_not_in_dest + same_name_files ).flatten
   end
   def sync_by_hash(src,dest,options={})
-    src_files   = collet_hash(find_as_relative(src, options), src)
-    dest_files  = collet_hash(find_as_relative(dest,options),dest)
+    src_files   = collet_hash(find_as_relative(src, options), src, options)
+    dest_files  = collet_hash(find_as_relative(dest,options),dest, options)
     target  = src_files.keys - dest_files.keys
     target = target.reject{|key|
       e = src_files[key].first
@@ -107,13 +117,13 @@ class RbSync
     puts "同期が終りました"     if ret.select{|e|!e}.size == 0 && self.debug?
     puts "同期に失敗したみたい" if ret.select{|e|!e}.size != 0 && self.debug?
   end
-  def collet_hash(file_names,basedir)
+  def collet_hash(file_names,basedir,options={})
     #prepare
     require 'thread'
     threads =[]
     output = Hash.new{|s,key| s[key]=[] }
     q      = Queue.new
-    limitsize = @conf[:hash_limit_size]
+    limitsize = options[:hash_limit_size]
     # compute digests
     file_names.each{|e| q.push e }
     5.times{
@@ -121,7 +131,7 @@ class RbSync
         Thread.start{
           while(!q.empty?)
             name = q.pop
-            hash = compute_digest_file(File.expand_path(name,basedir))
+            hash = compute_digest_file(File.expand_path(name,basedir),limitsize)
             output[hash].push name
           end
         }
@@ -186,13 +196,14 @@ class RbSync
     return files.size == 0
   end
   def sync(src,dest,options={})
-    options[:excludes] = (self.excludes + options[:excludes]).flatten.uniq if options[:excludes]
+    options[:excludes] = (self.excludes + [options[:excludes]]).flatten.uniq if options[:excludes]
     options[:update]   = @conf[:update] if options[:update] == nil
     options[:check_hash] = options[:check_hash] and @conf[:check_hash]
+    options[:hash_limit_size] = @conf[:hash_limit_size] if options[:hash_limit_size] == nil
     if options[:check_hash]
           return self.sync_by_hash(src,dest,options)
     else
-          return self.sync_nornally(src,dest,options) unless options[:check_hash]
+          return self.sync_nornally(src,dest,options)
     end
   end
   #for setting
@@ -250,3 +261,8 @@ class RbSync
   alias update= updated_file_only=
   alias newer=   updated_file_only=
 end
+
+
+require 'tmpdir'
+require 'find'
+require 'pp'
