@@ -1,6 +1,6 @@
-#rbsync‚Ì‰ü—Ç”ÅB
-# ƒtƒ@ƒCƒ‹–¼‚Å‚È‚­ƒnƒbƒVƒ…’l‚ğŒvZ‚µ‚Äƒtƒ@ƒCƒ‹‚ğ“¯Šú‚·‚éB
-#ƒtƒ@ƒCƒ‹‚Ì“¯Šú
+#rbsyncã®æ”¹è‰¯ç‰ˆã€‚
+# ãƒ•ã‚¡ã‚¤ãƒ«åã§ãªããƒãƒƒã‚·ãƒ¥å€¤ã‚’è¨ˆç®—ã—ã¦ãƒ•ã‚¡ã‚¤ãƒ«ã‚’åŒæœŸã™ã‚‹ã€‚
+#ãƒ•ã‚¡ã‚¤ãƒ«ã®åŒæœŸ
 
 require 'fileutils'
 STDOUT.sync = true
@@ -31,15 +31,15 @@ class RbSync
     dest_files = self.find_as_relative( dest, options[:excludes] )
 
     # output target files
-    puts "@@Œ³ƒtƒHƒ‹ƒ_:"  +  src_files.size.to_s + "Œ" if self.debug?
-    puts "“¯ŠúæƒtƒHƒ‹ƒ_:"  + dest_files.size.to_s + "Œ" if self.debug?
+    puts "ã€€ã€€å…ƒãƒ•ã‚©ãƒ«ãƒ€:"  +  src_files.size.to_s + "ä»¶" if self.debug?
+    puts "åŒæœŸå…ˆãƒ•ã‚©ãƒ«ãƒ€:"  + dest_files.size.to_s + "ä»¶" if self.debug?
     #pp src_files if self.debug?
     sleep 1 if self.debug?
 
-    #—¼•û‚É‚ ‚éƒtƒ@ƒCƒ‹–¼‚Å’†g‚ªˆá‚¤‚à‚Ì‚Å src ‚Ì•û‚ªŒÃ‚¢‚à‚Ì
+    #ä¸¡æ–¹ã«ã‚ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«åã§ä¸­èº«ãŒé•ã†ã‚‚ã®ã§ src ã®æ–¹ãŒå¤ã„ã‚‚ã®
     same_name_files = (dest_files & src_files)
     same_name_files.reject!{|e|
-        #ƒtƒ@ƒCƒ‹‚ª“¯‚¶ƒ‚ƒm‚ÍÈ‚­
+        #ãƒ•ã‚¡ã‚¤ãƒ«ãŒåŒã˜ãƒ¢ãƒã¯çœã
         FileUtils.cmp( File.expand_path(e,src) , File.expand_path(e,dest) ) 
     }
     if options[:update] then
@@ -62,17 +62,17 @@ class RbSync
       File.exists?( File.expand_path(e,dest)) &&
       (File.mtime(File.expand_path(e,src)) < File.mtime( File.expand_path(e,dest)))
     }
-    puts "“¯Šú‘ÎÛƒtƒ@ƒCƒ‹" if self.debug?
+    puts "åŒæœŸå¯¾è±¡ãƒ•ã‚¡ã‚¤ãƒ«" if self.debug?
     puts target.each{|key|puts src_files[key].first} if self.debug?
-    puts "“¯Šú‘ÎÛ‚Í‚ ‚è‚Ü‚¹‚ñ" if self.debug? and target.size==0
+    puts "åŒæœŸå¯¾è±¡ã¯ã‚ã‚Šã¾ã›ã‚“" if self.debug? and target.size==0
     ret = target.map{|key|
         e = src_files[key].first
         FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
                         {:preserve=>self.preserve?,:verbose=>self.verbose? }) 
         FileTest.exist?(File.expand_path(e,dest))
     }
-    puts "“¯Šú‚ªI‚è‚Ü‚µ‚½"     if ret.select{|e|!e}.size == 0 && self.debug?
-    puts "“¯Šú‚É¸”s‚µ‚½‚İ‚½‚¢" if ret.select{|e|!e}.size != 0 && self.debug?
+    puts "åŒæœŸãŒçµ‚ã‚Šã¾ã—ãŸ"     if ret.select{|e|!e}.size == 0 && self.debug?
+    puts "åŒæœŸã«å¤±æ•—ã—ãŸã¿ãŸã„" if ret.select{|e|!e}.size != 0 && self.debug?
   end
   def collet_hash(file_names,basedir)
     #prepare
@@ -102,7 +102,7 @@ class RbSync
   #   If file size is very large.
   #   And  a few byte head of file  is enough to compare.
   #   for speedup, setting limit size enable to skipp reading file.
-  #   ‚à‚µƒtƒ@ƒCƒ‹‚ª‚Æ‚Ä‚à‹‘å‚ÅA‚©‚ÂAæ“ª‚Ì”ƒLƒƒoƒCƒg‚Å\•ª‚Å‚ ‚ê‚ÎAlimitsize ˆÈ~‚ğƒXƒLƒbƒv‚·‚é
+  #   ã‚‚ã—ãƒ•ã‚¡ã‚¤ãƒ«ãŒã¨ã¦ã‚‚å·¨å¤§ã§ã€ã‹ã¤ã€å…ˆé ­ã®æ•°ã‚­ãƒ­ãƒã‚¤ãƒˆã§ååˆ†ã§ã‚ã‚Œã°ã€limitsize ä»¥é™ã‚’ã‚¹ã‚­ãƒƒãƒ—ã™ã‚‹
   def compute_digest_file(filename, limitsize=nil)
       require 'digest/md5'
       s = %{
@@ -124,20 +124,20 @@ class RbSync
       Digest::MD5.open(filename,limitsize).hexdigest
   end
   
-  # ƒƒWƒbƒN‚ª’·‚·‚¬‚é‚Ì‚Å’Z‚­‚·‚é‚©•Ê‚É•ª‚¯‚éD
-  # ƒƒWƒbƒN‚Ìƒpƒ^[ƒ“–ˆ‚É‹¤’Ê‰»‚·‚é
-  # EƒfƒBƒŒƒNƒgƒŠ“à‚Ìƒtƒ@ƒCƒ‹ˆê——‚ğì‚é
-  # Eƒtƒ@ƒCƒ‹ˆê——‚ğ”äŠr‚·‚é
-  # E“¯Šú‚·‚éƒtƒ@ƒCƒ‹ˆê——‚ğì‚Á‚Ä“]‘—‚·‚é
+  # ãƒ­ã‚¸ãƒƒã‚¯ãŒé•·ã™ãã‚‹ã®ã§çŸ­ãã™ã‚‹ã‹åˆ¥ã«åˆ†ã‘ã‚‹ï¼
+  # ãƒ­ã‚¸ãƒƒã‚¯ã®ãƒ‘ã‚¿ãƒ¼ãƒ³æ¯ã«å…±é€šåŒ–ã™ã‚‹
+  # ãƒ»ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªå†…ã®ãƒ•ã‚¡ã‚¤ãƒ«ä¸€è¦§ã‚’ä½œã‚‹
+  # ãƒ»ãƒ•ã‚¡ã‚¤ãƒ«ä¸€è¦§ã‚’æ¯”è¼ƒã™ã‚‹
+  # ãƒ»åŒæœŸã™ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«ä¸€è¦§ã‚’ä½œã£ã¦è»¢é€ã™ã‚‹
   def sync_nornally(src,dest,options={})
     files = self.find_files(src,dest,options)
-    puts "“¯Šú‘ÎÛ‚Ìƒtƒ@ƒCƒ‹‚Í‚ ‚è‚Ü‚¹‚ñ" if self.debug? && files.size==0
+    puts "åŒæœŸå¯¾è±¡ã®ãƒ•ã‚¡ã‚¤ãƒ«ã¯ã‚ã‚Šã¾ã›ã‚“" if self.debug? && files.size==0
     return true if files.size == 0
-    puts "Ÿ‚Ìƒtƒ@ƒCƒ‹‚ğ“¯Šú‚µ‚Ü‚·" if self.debug?
+    puts "æ¬¡ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’åŒæœŸã—ã¾ã™" if self.debug?
     pp files                        if self.debug?
     
-    #srcƒtƒ@ƒCƒ‹‚ğdest‚Éã‘‚«
-    #todo options ‚ğæ‚èo‚·
+    #srcãƒ•ã‚¡ã‚¤ãƒ«ã‚’destã«ä¸Šæ›¸ã
+    #todo options ã‚’å–ã‚Šå‡ºã™
     files.each{|e|
       FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
       {:preserve=>self.preserve?,:verbose=>self.verbose? } )
@@ -147,8 +147,8 @@ class RbSync
     #checking sync result
     files = self.find_files(src,dest,options)
 
-    puts "“¯Šú‚ªI‚è‚Ü‚µ‚½"       if files.size == 0 && self.debug?
-    puts "“¯Šú‚É¸”s‚ª‚ ‚è‚Ü‚µ‚½" if files.size != 0 && self.debug?
+    puts "åŒæœŸãŒçµ‚ã‚Šã¾ã—ãŸ"       if files.size == 0 && self.debug?
+    puts "åŒæœŸã«å¤±æ•—ãŒã‚ã‚Šã¾ã—ãŸ" if files.size != 0 && self.debug?
     pp files                      if files.size != 0 && self.debug?
     return files.size == 0
   end
