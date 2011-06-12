@@ -91,14 +91,19 @@ class RbSync
           (File.mtime(File.expand_path(e,src)) > File.mtime( File.expand_path(e,dest)))
       }
     end
+    if options[:overwrite] == false then
+      same_name_files= same_name_files.reject{|e|
+          (File.exists?(File.expand_path(e,src)) && File.exists?( File.expand_path(e,dest)))
+      }
+    end
     files_not_in_dest = (src_files - dest_files)
     #files
     files =[]
     files = (files_not_in_dest + same_name_files ).flatten
   end
   def sync_by_hash(src,dest,options={})
-    src_files   = collet_hash(find_as_relative(src, options), src, options)
-    dest_files  = collet_hash(find_as_relative(dest,options),dest, options)
+    src_files   = collet_hash(find_as_relative(src, options[:excludes]), src, options)
+    dest_files  = collet_hash(find_as_relative(dest,options[:excludes]),dest, options)
     target  = src_files.keys - dest_files.keys
     target = target.reject{|key|
       e = src_files[key].first
@@ -106,15 +111,31 @@ class RbSync
       File.exists?( File.expand_path(e,dest)) &&
       (File.mtime(File.expand_path(e,src)) < File.mtime( File.expand_path(e,dest)))
     }
+    if options[:overwrite] == false then
+      target = target .reject{|key|
+          e = src_files[key].first
+          (File.exists?(File.expand_path(e,src)) && File.exists?( File.expand_path(e,dest)))
+      }
+    end
     puts "同期対象ファイル" if self.debug?
     puts target.each{|key|puts src_files[key].first} if self.debug?
     puts "同期対象はありません" if self.debug? and target.size==0
-    ret = target.map{|key|
+
+    files= target.map{|key|
         e = src_files[key].first
-        FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
-                        {:preserve=>self.preserve?,:verbose=>self.verbose? }) 
-        FileTest.exist?(File.expand_path(e,dest))
+        [File.expand_path(e,src) , File.expand_path(e,dest)]
     }
+    self.copy_r(files)
+
+    ret = files.map{|e|
+      FileTest.exist?(e[1])
+    }
+    #ret = target.map{|key|
+        #e = src_files[key].first
+        #FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
+                        #{:preserve=>self.preserve?,:verbose=>self.verbose? }) 
+        #FileTest.exist?(File.expand_path(e,dest))
+    #}
     puts "同期が終りました"     if ret.select{|e|!e}.size == 0 && self.debug?
     puts "同期に失敗したみたい" if ret.select{|e|!e}.size != 0 && self.debug?
   end
@@ -182,11 +203,7 @@ class RbSync
     
     #srcファイルをdestに上書き
     #todo options を取り出す
-    files.each{|e|
-      FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
-      {:preserve=>self.preserve?,:verbose=>self.verbose? } )
-    }
-    files =[]
+    self.copy_r(files.map{|e|[File.expand_path(e,src) , File.expand_path(e,dest)]})
     
     #checking sync result
     files = self.find_files(src,dest,options)
@@ -196,15 +213,54 @@ class RbSync
     pp files                      if files.size != 0 && self.debug?
     return files.size == 0
   end
+  # 別名で名前をつけて転送する
+  def sync_by_anothername(src,dest,options)
+    # 上書き付加の場合
+    # 
+    #ファイル一覧を取得する
+    files = find_as_relative(src,options[:excludes])
+    #中身が同じモノを排除
+    files = files.reject{|e|
+      FileUtils.cmp(File.expand_path(e,src) , File.expand_path(e,dest))
+    }
+    #更新日が当たらしifモノを排除
+    files = files.reject{|e|
+      File.mtime(File.expand_path(e,src)) < File.mtime(File.expand_path(e,dest))
+    }
+    #別名をつける
+    files = files.map{|e|
+      extname = File.extname(e)
+      basename = File.basename(e).gsub(extname,"")
+      candidate = ""
+      100.times{|i|
+        candidate = File.expand_path("#{basename}(#{i+1})#{extname}",dest)
+        break unless File.exists?(File.expand_path(candidate,dest))
+        raise "upto #{i} files are already exists ." if  i >=1000
+        next FileUtils.cmp(File.expand_path(e,src) , File.expand_path(candidate,dest))
+      }
+      [File.expand_path(e,src) , File.expand_path(candidate,dest)]
+    }
+    #コピーする
+    self.copy_r(files)
+  end
+  def copy_r(files)
+    files.each{|e|
+      FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+    }
+  end
   def sync(src,dest,options={})
-    options[:excludes] = (self.excludes + [options[:excludes]]).flatten.uniq if options[:excludes]
-    options[:update]   = @conf[:update]                                      if options[:update] == nil
-    options[:check_hash] = options[:check_hash] and @conf[:check_hash]
-    options[:hash_limit_size] = @conf[:hash_limit_size]                      if options[:hash_limit_size] == nil
-    if options[:check_hash]
-          return self.sync_by_hash(src,dest,options)
+    options[:excludes]        = self.excludes.push(options[:excludes]).flatten.uniq if options[:excludes]
+    options[:update]          = @conf[:update]                                if options[:update] == nil
+    options[:check_hash]      = options[:check_hash] and @conf[:check_hash]
+    options[:hash_limit_size] = @conf[:hash_limit_size]                       if options[:hash_limit_size] == nil
+    options[:overwrite]       = @conf[:overwrite]                             if options[:overwrite] == nil
+    options[:overwrite]       = false                                         if options[:no_overwrite]
+    if options[:rename]
+      return self.sync_by_anothername(src,dest,options)
+    elsif options[:check_hash]
+      return self.sync_by_hash(src,dest,options)
     else
-          return self.sync_normally(src,dest,options)
+      return self.sync_normally(src,dest,options)
     end
   end
   
@@ -255,6 +311,12 @@ class RbSync
   def preserve?
     @conf[:preserve]
   end
+  def overwrite=(flag)
+    @conf[:overwrite] = flag
+  end
+  def overwrite?
+    @conf[:overwrite]
+  end
 
   #aliases
 
@@ -265,3 +327,39 @@ class RbSync
 end
 
 
+#require 'tmpdir'
+#require 'find'
+#require 'pp'
+    #Dir.mktmpdir('goo') do |dir|
+      #Dir.chdir dir do 
+        #Dir.mkdir("old")
+        #Dir.mkdir("new")
+        #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        #open("./new/test.txt", "w+"){|f| 10.times{f.puts("different")}}
+        #rsync = RbSync.new
+        #rsync.sync("old","new",{:overwrite=>false,:check_hash=>true})
+        #p FileUtils.cmp("old/test.txt","new/test.txt") == false
+      #end
+    #end
+
+
+#require 'tmpdir'
+#require 'find'
+#require 'pp'
+#Dir.mktmpdir('goo') do |dir|
+  #Dir.chdir dir do 
+    #Dir.mkdir("old")
+    #Dir.mkdir("new")
+    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+    #rsync = RbSync.new
+    #rsync.sync("old","new")
+    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
+    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
+    #rsync.sync("old","new",{:rename => true})
+    #p FileUtils.cmp("old/test.txt","new/test.txt") == false
+    #p FileUtils.cmp("old/test.txt","new/test(1).txt") == true
+    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed!!!")}}
+    #rsync.sync("old","new",{:rename => true})
+    #p FileUtils.cmp("old/test.txt","new/test(2).txt") == true
+  #end
+#end

@@ -110,4 +110,19 @@ class TestRbsync < Test::Unit::TestCase
       end
     end
   end
+  def test_sync_no_overwrite
+    Dir.mktmpdir('goo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./new/test.txt", "w+"){|f| 10.times{f.puts("different")}}
+        rsync = RbSync.new
+        rsync.sync("old","new",{:overwrite=>false})
+        assert FileUtils.cmp("old/test.txt","new/test.txt") == false
+        rsync.sync("old","new",{:overwrite=>false,:check_hash=>true})
+        assert FileUtils.cmp("old/test.txt","new/test.txt") == false
+      end
+    end
+  end
 end
