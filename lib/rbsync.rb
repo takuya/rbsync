@@ -56,6 +56,7 @@ class RbSync
     @conf ={}
     @conf[:update] = false
     @conf[:excludes] = []
+    @conf[:preserve] = true
   end
   # collect file paths. paths are relatetive path.
   def find_as_relative(dir_name,excludes=[])
@@ -244,6 +245,8 @@ class RbSync
     self.copy_r(files)
   end
   def copy_r(files)
+    ##todo 進捗を調べる．
+    
     files.each{|e|
       FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
     }
