@@ -3,36 +3,36 @@
 rbsync is sync files utility
 == usage
 === mirror files
-“¯ŠúŒ³‚Æ“¯Šúæ‚ğ“¯‚¶‚É‚·‚é
+åŒæœŸå…ƒã¨åŒæœŸå…ˆã‚’åŒã˜ã«ã™ã‚‹
           require 'rbsync'
           rsync =RbSync.new
           rsync.sync( "src", "dest" )
 === mirror updated only files
-“¯Šúæ‚ÉA“¯ŠúŒ³‚Æ“¯–¼‚Ìƒtƒ@ƒCƒ‹‚ª‚ ‚Á‚½‚çAXV“ú‚ğ’²‚×‚éBV‚µ‚¢ƒ‚ƒm‚¾‚¯‚ğƒRƒs[‚·‚éD
+åŒæœŸå…ˆã«ã€åŒæœŸå…ƒã¨åŒåã®ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã£ãŸã‚‰ã€æ›´æ–°æ—¥æ™‚ã‚’èª¿ã¹ã‚‹ã€‚æ–°ã—ã„ãƒ¢ãƒã ã‘ã‚’ã‚³ãƒ”ãƒ¼ã™ã‚‹ï¼
           require 'rbsync'
           rsync =RbSync.new
           rsync.sync( "src", "dest",{:update=>true} )
 === using exclude pattern
-“¯Šúæ‚Æ“¯ŠúŒ³‚ğ“¯‚¶‚É‚·‚éC’A‚µA*.rb / *.log ‚ÌŠg’£q‚ÍœŠO‚·‚éD
+åŒæœŸå…ˆã¨åŒæœŸå…ƒã‚’åŒã˜ã«ã™ã‚‹ï¼Œä½†ã—ã€*.rb / *.log ã®æ‹¡å¼µå­ã¯é™¤å¤–ã™ã‚‹ï¼
           require 'rbsync'
           rsync =RbSync.new
           rsync.sync( "src", "dest",{:excludes=>["*.log","*.bak"]} )
 ==special usage , sync by file cotetets 
 if directory has a same file with different file name. insted of filename , sync file by file hash
-ƒfƒBƒŒƒNƒgƒŠ“à‚Ìƒtƒ@ƒCƒ‹–¼‚ğ‚¤‚Á‚©‚è•Ï‚¦‚Ä‚µ‚Ü‚Á‚½‚Æ‚«‚Ég‚¤Dƒtƒ@ƒCƒ‹–¼‚Å‚È‚­Aƒtƒ@ƒCƒ‹‚Ì’†g‚ğ”äŠr‚µ‚Ä“¯Šú‚·‚éD
+ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªå†…ã®ãƒ•ã‚¡ã‚¤ãƒ«åã‚’ã†ã£ã‹ã‚Šå¤‰ãˆã¦ã—ã¾ã£ãŸã¨ãã«ä½¿ã†ï¼ãƒ•ã‚¡ã‚¤ãƒ«åã§ãªãã€ãƒ•ã‚¡ã‚¤ãƒ«ã®ä¸­èº«ã‚’æ¯”è¼ƒã—ã¦åŒæœŸã™ã‚‹ï¼
           require 'rbsync'
           rsync =RbSync.new
           rsync.sync( "src", "dest",{:check_hash=>true} )
 === directory has very large file ,such as mpeg video
 checking only head of 1024*1024 bytes to distinguish src / dest files.this is for speed up.
 FileUtils::cmp is reading whole file. large file will take time.With :hash_limit_size Rbsync read only head of files for comparing.
-‹‘å‚Èƒtƒ@ƒCƒ‹‚¾‚ÆC‘S•”“Ç‚İ‚Ş‚Ì‚ÉŠÔ‚ªŠ|‚©‚é‚Ì‚ÅAæ“ª1024*1024 ƒoƒCƒg‚ğ”äŠr‚µ‚ÄOK‚Æ‚·‚é.Ê^‚Æ‚©‚ÍƒRƒŒ‚Å\•ª
+å·¨å¤§ãªãƒ•ã‚¡ã‚¤ãƒ«ã ã¨ï¼Œå…¨éƒ¨èª­ã¿è¾¼ã‚€ã®ã«æ™‚é–“ãŒæ›ã‹ã‚‹ã®ã§ã€å…ˆé ­1024*1024 ãƒã‚¤ãƒˆã‚’æ¯”è¼ƒã—ã¦OKã¨ã™ã‚‹.å†™çœŸã¨ã‹ã¯ã‚³ãƒ¬ã§ååˆ†
           require 'rbsync'
           rsync =RbSync.new
           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
 
 === sync both updated files
-‘o•ûŒü‚É“¯Šú‚³‚¹‚½‚¢ê‡‚Í‚Q‰ñ‹N“®‚·‚éD
+åŒæ–¹å‘ã«åŒæœŸã•ã›ãŸã„å ´åˆã¯ï¼’å›èµ·å‹•ã™ã‚‹ï¼
           require 'rbsync'
           rsync =RbSync.new
           rsync.updated_file_only = true
