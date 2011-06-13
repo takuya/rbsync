@@ -405,14 +405,14 @@ class ProgressBar
   attr_accessor :size, :out, :bar_char_undone, :bar_char_done, :show_percent
   def initialize()
     @out = $stdout
-    @size = 11
+    @size = 10
     @bar_char_undone = "_"
     @bar_char_done   = "#"
     @show_percent    = true
-    @printend_max_size = @size
+    @printend_max_size = 0
   end
   def start(message="")
-    out.print message
+    out.puts message
     out.print bar_char_undone * size 
     out.flush
   end
