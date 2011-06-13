@@ -329,6 +329,56 @@ class RbSync
   alias newer=   updated_file_only=
 end
 
+# ==プログレスバーを表示する．
+#      prg= ProgressBar.new
+#      prg.show_percent = true
+#      prg.size = 60
+#      prg.start("downloading\n")
+#      100.times{|i|
+#        prg.progress(i, "#{i}/100")
+#        sleep 0.015
+#      }
+#      prg.end("done")
+class ProgressBar
+  attr_accessor :size, :out, :bar_char_undone, :bar_char_done, :show_percent
+  def initialize()
+    @out = $stdout
+    @size = 11
+    @bar_char_undone = "_"
+    @bar_char_done   = "#"
+    @show_percent    = true
+    @printend_max_size = @size
+  end
+  def start(message="")
+    out.print message
+    out.print bar_char_undone * size 
+    out.flush
+  end
+  def end(message="")
+    progress(100)
+    out.print " " + message
+    out.puts ""
+    out.flush
+  end
+  def clear()
+    out.print "\r"
+    line_size = [@printend_max_size, @size].max
+    out.print " " * line_size
+    out.flush
+  end
+  def progress(percent,message=nil)
+    clear()
+    str =""
+    str <<  "\r"
+    str <<  bar_char_done   * ((percent.to_f/100.to_f)*size).to_i
+    str <<  bar_char_undone * (size - ((percent.to_f/100.to_f)*size).to_i)
+    str <<  " " + percent.to_s + "%" if show_percent
+    str <<  " " + message  if message
+    @printend_max_size = str.size if str.size > @printend_max_size
+    out.print str
+    out.flush
+  end
+end
 
 #require 'tmpdir'
 #require 'find'
