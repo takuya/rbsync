@@ -1,8 +1,5 @@
 # encoding: utf-8
 
-#rbsyncの改良版。
-# ファイル名でなくハッシュ値を計算してファイルを同期する。
-#ファイルの同期
 
 require 'fileutils'
 
@@ -29,27 +26,60 @@ require 'fileutils'
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:excludes=>["*.log","*.bak"]} )
+# == sync by another name  if file name confilicts
+# 名前が衝突した場合で、ファイルを書換える時は，転送元のファイルを別名で転送する
+# windows のファイルコピーっぽい動作
+# send src file with anothername.
+# before sync
+# |src  | test.txt | 2011-06-14
+# |dest | test.txt | 2011-06-12
+# after sync
+# |src  | test.txt    | 2011-06-14
+# |dest | test(1).txt | 2011-06-14 # same to src
+# |dest | test.txt    | 2011-06-12
+# == sync with backup 
+# 名前が衝突した場合で、ファイルを書換える場合転送先のファイルを別名で保存してから転送する
+# before sync
+# |src  | test.txt | 2011-06-14
+# |dest | test.txt | 2011-06-12
+# after sync
+# |src  | test.txt                   | 2011-06-14
+# |dest | test.txt                   | 2011-06-14 # same to src
+# |dest | test_20110614022255.txt    | 2011-06-12 # moved
+#
+#
 # ==special usage , sync by file cotetets 
 # if directory has a same file with different file name. insted of filename , sync file by file hash
+# when files are theses,
+#  |src| test.txt | "47bce5c74f589f4867dbd57e9ca9f808" |
+#  |dst| test.bak | "47bce5c74f589f4867dbd57e9ca9f808" |
+# :check_hash results no effect.
 # ディレクトリ内のファイル名をうっかり変えてしまったときに使う．ファイル名でなく、ファイルの中身を比較して同期する．
+#  |src| test.txt | "47bce5c74f589f4867dbd57e9ca9f808" |
+#  |dst| test.bak | "47bce5c74f589f4867dbd57e9ca9f808" |
+# の場合何もおきません
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true} )
 # === directory has very large file ,such as mpeg video
+# using with :check_hash=>true
 # checking only head of 1024*1024 bytes to distinguish src / dest files.this is for speed up.
 # FileUtils::cmp is reading whole file. large file will take time.With :hash_limit_size Rbsync read only head of files for comparing.
 # 巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする.写真とかはコレで十分
+# ファイル名を書換えてしまってコンテンツ内容の比較だけで使う。
+# :check_hash=>true とペアで使います
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
 # 
 # === sync both updated files
+# To sync both, call sync methods twice 
 # 双方向に同期させたい場合は２回起動する．
 #           require 'rbsync'
 #           rsync =RbSync.new
 #           rsync.updated_file_only = true
 #           rsync.sync( "src", "dest" )
-#           rsync.sync( "dest", "src" )
+#           rsync.sync( "dest", "src" )# swap src to dest , dest to src
 class RbSync
   attr_accessor :conf
   def initialize()
@@ -165,10 +195,10 @@ class RbSync
   end
   # compute digest md5 
   # ==limitsize
-  #   If file size is very large.
-  #   And  a few byte head of file  is enough to compare.
-  #   for speedup, setting limit size enable to skipp reading file.
-  #   もしファイルがとても巨大で、かつ、先頭の数キロバイトで十分であれば、limitsize 以降をスキップする
+  #   If file size is very large,
+  #   and a few bytes at head of file is enough to compare.
+  #   for speed-up, Set limit size to enable to avoid reading a whole of file.
+  #   もしファイルがとても巨大で、かつ、先頭の数キロバイトが比較に十分であれば、limitsize 以降をスキップする
   def compute_digest_file(filename, limitsize=nil)
       require 'digest/md5'
       s = %{
@@ -190,11 +220,7 @@ class RbSync
       Digest::MD5.open(filename,limitsize).hexdigest
   end
   
-  # ロジックが長すぎるので短くするか別に分ける．
-  # ロジックのパターン毎に共通化する
-  # ・ディレクトリ内のファイル一覧を作る
-  # ・ファイル一覧を比較する
-  # ・同期するファイル一覧を作って転送する
+  # called from sync
   def sync_normally(src,dest,options={})
     files = self.find_files(src,dest,options)
     puts "同期対象のファイルはありません" if self.debug? && files.size==0
@@ -214,6 +240,38 @@ class RbSync
     pp files                      if files.size != 0 && self.debug?
     return files.size == 0
   end
+  # 同期先に同名ファイルがあったらファイルを別名にバックアップしてから転送します
+  def sync_with_backup(src,dest,options)
+    # 上書き付加の場合
+    # 
+    #ファイル一覧を取得する
+    files = find_as_relative(src,options[:excludes])
+    #中身が同じモノを排除
+    files = files.reject{|e|
+      FileUtils.cmp(File.expand_path(e,src) , File.expand_path(e,dest))
+    }
+    #更新日が当たらしいモノを排除
+    if options[:update] then
+      #更新日が当たらしいモノを排除
+      files = files.reject{|e|
+        File.mtime(File.expand_path(e,src)) < File.mtime(File.expand_path(e,dest))
+      }
+    end
+    #別名をつける
+    files = files.map{|e|
+      extname = File.extname(e)
+      basename = File.basename(e).gsub(extname,"")
+        # 同名のファイルがあった場合
+        # ファイルをリネームする
+        if File.exists?(File.expand_path(e,dest)) then
+            candidate = File.expand_path("#{basename}_#{Time.now.strftime('%Y%m%d%H%M%S')}#{extname}",dest)
+            File.rename( File.expand_path(e,dest),candidate )
+        end
+      [File.expand_path(e,src) , File.expand_path(e,dest)]
+    }
+    #コピーする
+    self.copy_r(files)
+  end
   # 別名で名前をつけて転送する
   def sync_by_anothername(src,dest,options)
     # 上書き付加の場合
@@ -224,10 +282,12 @@ class RbSync
     files = files.reject{|e|
       FileUtils.cmp(File.expand_path(e,src) , File.expand_path(e,dest))
     }
-    #更新日が当たらしifモノを排除
-    files = files.reject{|e|
-      File.mtime(File.expand_path(e,src)) < File.mtime(File.expand_path(e,dest))
-    }
+    if options[:update] then
+      #更新日が当たらしいモノを排除
+      files = files.reject{|e|
+        File.mtime(File.expand_path(e,src)) < File.mtime(File.expand_path(e,dest))
+      }
+    end
     #別名をつける
     files = files.map{|e|
       extname = File.extname(e)
@@ -260,6 +320,8 @@ class RbSync
     options[:overwrite]       = false                                         if options[:no_overwrite]
     if options[:rename]
       return self.sync_by_anothername(src,dest,options)
+    elsif options[:backup]
+      return self.sync_with_backup(src,dest,options)
     elsif options[:check_hash]
       return self.sync_by_hash(src,dest,options)
     else
@@ -414,5 +476,28 @@ end
     #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed!!!")}}
     #rsync.sync("old","new",{:rename => true})
     #p FileUtils.cmp("old/test.txt","new/test(2).txt") == true
+  #end
+#end
+#require 'tmpdir'
+#require 'find'
+#require 'pp'
+#Dir.mktmpdir('goo') do |dir|
+  #Dir.chdir dir do 
+    #Dir.mkdir("old")
+    #Dir.mkdir("new")
+    ## 同名のファイルを作って
+    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+    #old_content =open("./old/test.txt", "r").read
+    ## ミラーして
+    #rsync = RbSync.new
+    #rsync.sync("old","new")
+    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
+    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
+    ## バックアップ同期する
+    #rsync.sync("old","new",{:backup => true})
+    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
+    ## バックアップしたファイルがどうなっているか見る
+    #files = Dir.glob "./new/**/*"
+    #p old_content == open((files - ["./new/test.txt"]).first).read
   #end
 #end

@@ -125,4 +125,46 @@ class TestRbsync < Test::Unit::TestCase
       end
     end
   end
+  def test_sync_with_rename
+    Dir.mktmpdir('goo') do |dir|
+        Dir.chdir dir do 
+          Dir.mkdir("old")
+          Dir.mkdir("new")
+          open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+          rsync = RbSync.new
+          rsync.sync("old","new")
+          assert FileUtils.cmp("old/test.txt","new/test.txt") == true
+          open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
+          rsync.sync("old","new",{:rename => true})
+          assert FileUtils.cmp("old/test.txt","new/test.txt") == false
+          assert FileUtils.cmp("old/test.txt","new/test(1).txt") == true
+          open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed!!!")}}
+          rsync.sync("old","new",{:rename => true})
+          assert FileUtils.cmp("old/test.txt","new/test(2).txt") == true
+        end
+      end
+    end
+   def test_sync_with_backup
+     Dir.mktmpdir('goo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        # 同名のファイルを作って
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        old_content =open("./old/test.txt", "r").read
+        # ミラーして
+        rsync = RbSync.new
+        rsync.sync("old","new")
+        assert FileUtils.cmp("old/test.txt","new/test.txt") == true
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
+        # バックアップ同期する
+        rsync.sync("old","new",{:backup => true})
+        assert FileUtils.cmp("old/test.txt","new/test.txt") == true
+        # バックアップしたファイルがどうなっているか見る
+        files = Dir.glob "./new/**/*"
+        assert old_content == open((files - ["./new/test.txt"]).first).read
+      end
+    end
+  end
+
 end

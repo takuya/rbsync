@@ -1,44 +1,81 @@
 = rbsync
+ Synchronize files src to dest . 
+ this class can sync files and recuresively
+ options are
+ +sync update file only
+ +no overwrite when dist files are newer than src
+ +sync by file digest hash , not useing filename
 
-rbsync is sync files utility
-== usage
-=== mirror files
-同期元と同期先を同じにする
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.sync( "src", "dest" )
-=== mirror updated only files
-同期先に、同期元と同名のファイルがあったら、更新日時を調べる。新しいモノだけをコピーする．
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.sync( "src", "dest",{:update=>true} )
-=== using exclude pattern
-同期先と同期元を同じにする，但し、*.rb / *.log の拡張子は除外する．
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.sync( "src", "dest",{:excludes=>["*.log","*.bak"]} )
-==special usage , sync by file cotetets 
-if directory has a same file with different file name. insted of filename , sync file by file hash
-ディレクトリ内のファイル名をうっかり変えてしまったときに使う．ファイル名でなく、ファイルの中身を比較して同期する．
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.sync( "src", "dest",{:check_hash=>true} )
-=== directory has very large file ,such as mpeg video
-checking only head of 1024*1024 bytes to distinguish src / dest files.this is for speed up.
-FileUtils::cmp is reading whole file. large file will take time.With :hash_limit_size Rbsync read only head of files for comparing.
-巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする.写真とかはコレで十分
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
+ == usage
+ === mirror files
+ 同期元と同期先を同じにする
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.sync( "src", "dest" )
+ === mirror updated only files
+ 同期先に、同期元と同名のファイルがあったら、更新日時を調べる。新しいモノだけをコピーする．
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.sync( "src", "dest",{:update=>true} )
+ === using exclude pattern
+ 同期先と同期元を同じにする，但し、*.rb / *.log の拡張子は除外する．
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.sync( "src", "dest",{:excludes=>["*.log","*.bak"]} )
+ == sync by another name  if file name confilicts
+ send src file with anothername. when file name confilicts
+ 名前が衝突した場合で、ファイルを書換える時は，転送元のファイルを別名で転送する
+ windows のファイルコピーっぽい動作
+ before sync
+ |src  | test.txt | 2011-06-14
+ |dest | test.txt | 2011-06-12
+ after sync
+ |src  | test.txt    | 2011-06-14
+ |dest | test(1).txt | 2011-06-14 # same to src
+ |dest | test.txt    | 2011-06-12
+ == sync with backup 
+ 名前が衝突した場合で、ファイルを書換える場合転送先のファイルを別名で保存してから転送する
+ before sync
+ |src  | test.txt | 2011-06-14
+ |dest | test.txt | 2011-06-12
+ after sync
+ |src  | test.txt                   | 2011-06-14
+ |dest | test.txt                   | 2011-06-14 # same to src
+ |dest | test_20110614022255.txt    | 2011-06-12 # moved
 
-=== sync both updated files
-双方向に同期させたい場合は２回起動する．
-          require 'rbsync'
-          rsync =RbSync.new
-          rsync.updated_file_only = true
-          rsync.sync( "src", "dest" )
-          rsync.sync( "dest", "src" )
 
+ ==special usage , sync by file cotetets 
+ if directory has a same file with different file name. insted of filename , sync file by file hash
+ when files are theses,
+  |src| test.txt | "47bce5c74f589f4867dbd57e9ca9f808" |
+  |dst| test.bak | "47bce5c74f589f4867dbd57e9ca9f808" |
+ :check_hash results no effect.
+ ディレクトリ内のファイル名をうっかり変えてしまったときに使う．ファイル名でなく、ファイルの中身を比較して同期する．
+  |src| test.txt | "47bce5c74f589f4867dbd57e9ca9f808" |
+  |dst| test.bak | "47bce5c74f589f4867dbd57e9ca9f808" |
+ の場合何もおきません
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.sync( "src", "dest",{:check_hash=>true} )
+ === directory has very large file ,such as mpeg video
+ using with :check_hash=>true
+ checking only head of 1024*1024 bytes to distinguish src / dest files.this is for speed up.
+ FileUtils::cmp is reading whole file. large file will take time.With :hash_limit_size Rbsync read only head of files for comparing.
+ 巨大なファイルだと，全部読み込むのに時間が掛かるので、先頭1024*1024 バイトを比較してOKとする.写真とかはコレで十分
+ ファイル名を書換えてしまってコンテンツ内容の比較だけで使う。
+ :check_hash=>true とペアで使います
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.sync( "src", "dest",{:check_hash=>true,:hash_limit_size=1024*1024} )
+ 
+ === sync both updated files
+ To sync both, call sync methods twice 
+ 双方向に同期させたい場合は２回起動する．
+           require 'rbsync'
+           rsync =RbSync.new
+           rsync.updated_file_only = true
+           rsync.sync( "src", "dest" )
+           rsync.sync( "dest", "src" )# swap src to dest , dest to src
 == Contributing to rbsync
  
 * Check out the latest master to make sure the feature hasn't been implemented or the bug hasn't been fixed yet
