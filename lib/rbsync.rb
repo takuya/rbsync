@@ -161,12 +161,6 @@ class RbSync
     ret = files.map{|e|
       FileTest.exist?(e[1])
     }
-    #ret = target.map{|key|
-        #e = src_files[key].first
-        #FileUtils.copy( File.expand_path(e,src) , File.expand_path(e,dest),
-                        #{:preserve=>self.preserve?,:verbose=>self.verbose? }) 
-        #FileTest.exist?(File.expand_path(e,dest))
-    #}
     puts "同期が終りました"     if ret.select{|e|!e}.size == 0 && self.debug?
     puts "同期に失敗したみたい" if ret.select{|e|!e}.size != 0 && self.debug?
   end
@@ -306,9 +300,40 @@ class RbSync
   end
   def copy_r(files)
     ##todo 進捗を調べる．
-    
-    files.each{|e|
-      FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+    if(@conf[:progress])
+      puts ("copy #{files.size} files")
+      $stdout.flush
+    end
+    files.each_with_index{|e,i|
+      #show
+      if(@conf[:progress])
+        puts ("start #{i+1}/#{files.size}")
+        $stdout.flush
+      end
+      #main
+      copy_thread = Thread.start{
+        FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+      }
+      #progress of each file
+      progress_thread = nil
+      if(@conf[:progress])
+        progress_thread = Thread.start{
+          bar = ProgressBar.new
+          bar.size = 30
+          src_size = File.size(e[0])
+          dst_size = -1
+          bar.start("copying #{e[0]} to #{e[1]}")
+          while(src_size!=dst_size)
+            src_size = File.size(e[0]).to_f
+            dst_size = File.size(e[1]).to_f
+            bar.progress(((dst_size/src_size)*100).to_int)
+            sleep 0.2
+          end
+          bar.end("done")
+        }
+      end
+      copy_thread.join
+      progress_thread.join if progress_thread 
     }
   end
   def sync(src,dest,options={})
@@ -442,62 +467,3 @@ class ProgressBar
   end
 end
 
-#require 'tmpdir'
-#require 'find'
-#require 'pp'
-    #Dir.mktmpdir('goo') do |dir|
-      #Dir.chdir dir do 
-        #Dir.mkdir("old")
-        #Dir.mkdir("new")
-        #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
-        #open("./new/test.txt", "w+"){|f| 10.times{f.puts("different")}}
-        #rsync = RbSync.new
-        #rsync.sync("old","new",{:overwrite=>false,:check_hash=>true})
-        #p FileUtils.cmp("old/test.txt","new/test.txt") == false
-      #end
-    #end
-
-
-#require 'tmpdir'
-#require 'find'
-#require 'pp'
-#Dir.mktmpdir('goo') do |dir|
-  #Dir.chdir dir do 
-    #Dir.mkdir("old")
-    #Dir.mkdir("new")
-    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
-    #rsync = RbSync.new
-    #rsync.sync("old","new")
-    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
-    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
-    #rsync.sync("old","new",{:rename => true})
-    #p FileUtils.cmp("old/test.txt","new/test.txt") == false
-    #p FileUtils.cmp("old/test.txt","new/test(1).txt") == true
-    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed!!!")}}
-    #rsync.sync("old","new",{:rename => true})
-    #p FileUtils.cmp("old/test.txt","new/test(2).txt") == true
-  #end
-#end
-#require 'tmpdir'
-#require 'find'
-#require 'pp'
-#Dir.mktmpdir('goo') do |dir|
-  #Dir.chdir dir do 
-    #Dir.mkdir("old")
-    #Dir.mkdir("new")
-    ## 同名のファイルを作って
-    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
-    #old_content =open("./old/test.txt", "r").read
-    ## ミラーして
-    #rsync = RbSync.new
-    #rsync.sync("old","new")
-    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
-    #open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
-    ## バックアップ同期する
-    #rsync.sync("old","new",{:backup => true})
-    #p FileUtils.cmp("old/test.txt","new/test.txt") == true
-    ## バックアップしたファイルがどうなっているか見る
-    #files = Dir.glob "./new/**/*"
-    #p old_content == open((files - ["./new/test.txt"]).first).read
-  #end
-#end
