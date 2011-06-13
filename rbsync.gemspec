@@ -5,7 +5,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{rbsync}
-  s.version = "0.0.6"
+  s.version = "0.0.7"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["takuya"]
@@ -25,10 +25,9 @@ Gem::Specification.new do |s|
     "Rakefile",
     "VERSION",
     "lib/rbsync.rb",
-    "new/test.txt",
-    "old/test.txt",
     "rbsync.gemspec",
     "test/helper.rb",
+    "test/test_progressbar.rb",
     "test/test_rbsync.rb"
   ]
   s.homepage = %q{http://github.com/takuya/rbsync}
