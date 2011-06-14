@@ -469,22 +469,25 @@ class ProgressBar
   end
 end
 
+
+
 if __FILE__ == $0
 require 'tmpdir'
 require 'find'
 require 'pp'
-    #Dir.mktmpdir('goo') do |dir|
-      #Dir.chdir dir do 
-        #Dir.mkdir("old")
-        #Dir.mkdir("new")
-        #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
-        #time1 = Time.local(2008, 1, 1, 1, 1, 1)
-        ## //old/test.txt is more newer than ./new/test.txt
-        #File::utime( time1 , time1, "./old/test.txt")
-        #rsync = RbSync.new
-        #rsync.sync("old","new",{:update=>true})
-        #p File.atime("./new/test.txt") == time1
-      #end
-    #end
+    Dir.mktmpdir('goo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        time1 = Time.local(2008, 1, 1, 1, 1, 1)
+        File::utime( time1 , time1, "./old/test.txt")
+        rsync = RbSync.new
+        rsync.sync("old","new",{:update=>true})
+        # timestamp is preserved?
+        p File.mtime("./new/test.txt") == time1
+        p File.atime("./new/test.txt") == time1
+      end
+    end
   puts :END
 end

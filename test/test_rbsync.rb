@@ -239,10 +239,11 @@ class TestRbsync < Test::Unit::TestCase
         Dir.mkdir("new")
         open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
         time1 = Time.local(2008, 1, 1, 1, 1, 1)
-        # //old/test.txt is more newer than ./new/test.txt
         File::utime( time1 , time1, "./old/test.txt")
         rsync = RbSync.new
         rsync.sync("old","new",{:update=>true})
+        # timestamp is preserved?
+        assert File.mtime("./new/test.txt") == time1
         assert File.atime("./new/test.txt") == time1
       end
     end
