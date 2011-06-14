@@ -166,5 +166,86 @@ class TestRbsync < Test::Unit::TestCase
       end
     end
   end
+  def test_sync_old_to_new_twice
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        rsync = RbSync.new
+        rsync.sync("old","new")
+        rsync.sync("old","new")
+        assert FileUtils.cmp("old/test.txt","new/test.txt")
+        files = Dir.glob "./new/**/*"
+        assert files.size == 1
+      end
+    end
+  end
+  def test_sync_old_to_new_sub_dir
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("old/dir1")
+        Dir.mkdir("new")
+        open("./old/dir1/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        rsync = RbSync.new
+        rsync.sync("old","new")
+        assert FileUtils.cmp("old/dir1/test.txt","new/dir1/test.txt")
+        files = Dir.glob "./new/**/*"
+        files = files.reject{|e| File.directory?(e) }
+        assert files.size == 1
+      end
+    end
+  end
+  def test_sync_old_to_new_sub_dir2
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("old/dir1")
+        Dir.mkdir("new")
+        open("./old/dir1/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./old/dir1/test2.txt", "w+"){|f| 10.times{f.puts("test")}}
+        rsync = RbSync.new
+        rsync.sync("old","new")
+        assert FileUtils.cmp("old/dir1/test.txt","new/dir1/test.txt")
+        files = Dir.glob "./new/**/*"
+        files = files.reject{|e| File.directory?(e) }
+        assert files.size == 2
+      end
+    end
+  end
+  def test_sync_preserve_time_stamp_1
+    Dir.mktmpdir('goo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./new/test.txt", "w+"){|f| 10.times{f.puts("different")}}
+        time1 = Time.local(2018, 1, 1, 1, 1, 1)
+        time2 = Time.local(2008, 1, 1, 1, 1, 1)
+        # //old/test.txt is more newer than ./new/test.txt
+        File::utime( time1 , time1, "./old/test.txt")
+        File::utime( time2 , time2, "./new/test.txt")
+        rsync = RbSync.new
+        rsync.sync("old","new",{:update=>true})
+        assert File.atime("./new/test.txt") == time1
+      end
+    end
+  end
+  def test_sync_preserve_time_stamp_2
+    Dir.mktmpdir('goo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("old")
+        Dir.mkdir("new")
+        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        time1 = Time.local(2008, 1, 1, 1, 1, 1)
+        # //old/test.txt is more newer than ./new/test.txt
+        File::utime( time1 , time1, "./old/test.txt")
+        rsync = RbSync.new
+        rsync.sync("old","new",{:update=>true})
+        assert File.atime("./new/test.txt") == time1
+      end
+    end
+  end
 
 end

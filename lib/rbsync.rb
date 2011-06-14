@@ -96,9 +96,11 @@ class RbSync
       files = Dir.glob "./**/*", File::FNM_DOTMATCH
       exclude_files =[]
       exclude_files = excludes.map{|g| Dir.glob "./**/#{g}",File::FNM_DOTMATCH } 
+      #files.each{|e|pp [e, File.directory?(e)]  }
+      files = files.reject{|e| File.directory?(e)  }
       files = files - exclude_files.flatten
     }
-    files.reject{|e| [".",".."].any?{|s| s== File::basename(e)  }}
+    files = files.reject{|e| [".",".."].any?{|s| s== File::basename(e)  }}
   end
   # compare two directory by name and FileUtis,cmp
   def find_files(src,dest,options)
@@ -299,7 +301,6 @@ class RbSync
     self.copy_r(files)
   end
   def copy_r(files)
-    ##todo 進捗を調べる．
     if(@conf[:progress])
       puts ("copy #{files.size} files")
       $stdout.flush
@@ -312,6 +313,7 @@ class RbSync
       end
       #main
       copy_thread = Thread.start{
+        FileUtils.mkdir_p File.dirname(e[1]) unless File.exists?(File.dirname(e[1]))
         FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
       }
       #progress of each file
@@ -467,3 +469,22 @@ class ProgressBar
   end
 end
 
+if __FILE__ == $0
+require 'tmpdir'
+require 'find'
+require 'pp'
+    #Dir.mktmpdir('goo') do |dir|
+      #Dir.chdir dir do 
+        #Dir.mkdir("old")
+        #Dir.mkdir("new")
+        #open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+        #time1 = Time.local(2008, 1, 1, 1, 1, 1)
+        ## //old/test.txt is more newer than ./new/test.txt
+        #File::utime( time1 , time1, "./old/test.txt")
+        #rsync = RbSync.new
+        #rsync.sync("old","new",{:update=>true})
+        #p File.atime("./new/test.txt") == time1
+      #end
+    #end
+  puts :END
+end
