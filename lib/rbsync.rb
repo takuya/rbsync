@@ -2,7 +2,6 @@
 
 
 require 'fileutils'
-
 # Synchronize files src to dest . 
 # this class can sync files and recuresively
 # options are
@@ -133,6 +132,7 @@ class RbSync
     #files
     files =[]
     files = (files_not_in_dest + same_name_files ).flatten
+    files
   end
   def sync_by_hash(src,dest,options={})
     src_files   = collet_hash(find_as_relative(src, options[:excludes]), src, options)
@@ -328,14 +328,16 @@ class RbSync
           while(src_size!=dst_size)
             src_size = File.size(e[0]).to_f
             dst_size = File.size(e[1]).to_f
-            bar.progress(((dst_size/src_size)*100).to_int)
+            break if dst_size == 0
+            percent = dst_size/src_size*100
+            bar.progress(percent.to_int)
             sleep 0.2
           end
           bar.end("done")
         }
       end
-      copy_thread.join
       progress_thread.join if progress_thread 
+      copy_thread.join
     }
   end
   def sync(src,dest,options={})
@@ -345,6 +347,7 @@ class RbSync
     options[:hash_limit_size] = @conf[:hash_limit_size]                       if options[:hash_limit_size] == nil
     options[:overwrite]       = @conf[:overwrite]                             if options[:overwrite] == nil
     options[:overwrite]       = false                                         if options[:no_overwrite]
+    FileUtils.mkdir_p dest unless File.exists? dest
     if options[:rename]
       return self.sync_by_anothername(src,dest,options)
     elsif options[:backup]
@@ -475,19 +478,31 @@ if __FILE__ == $0
 require 'tmpdir'
 require 'find'
 require 'pp'
-    Dir.mktmpdir('goo') do |dir|
-      Dir.chdir dir do 
-        Dir.mkdir("old")
-        Dir.mkdir("new")
-        open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
-        time1 = Time.local(2008, 1, 1, 1, 1, 1)
-        File::utime( time1 , time1, "./old/test.txt")
-        rsync = RbSync.new
-        rsync.sync("old","new",{:update=>true})
-        # timestamp is preserved?
-        p File.mtime("./new/test.txt") == time1
-        p File.atime("./new/test.txt") == time1
-      end
-    end
+    #Dir.mktmpdir('foo') do |dir|
+      #Dir.chdir dir do 
+        #Dir.mkdir("src")
+        #Dir.mkdir("dst")
+        #open("./src/test1.txt", "w+"){|f| 10.times{f.puts("test")}}
+        #open("./dst/test2.txt", "w+"){|f| 10.times{f.puts("aaaa")}}
+        #rsync = RbSync.new
+        #$count = $count+ 1
+        #rsync.sync("src","dst",{:update=>true})
+        #$count = $count+ 1
+        #rsync.sync("dst","src",{:update=>true})
+        #p File.mtime("./src/test2.txt")
+        ##p FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        ##p FileUtils.cmp("src/test2.txt","dst/test2.txt")
+        ##p open("./dst/test2.txt", "r").read
+        ##p open("./src/test2.txt", "r").read
+        #open("./src/test2.txt", "w+"){|f| 10.times{f.puts("bbb")}}
+        #p File.mtime("./src/test2.txt")
+        #$count = $count+ 1
+        #rsync.sync("src","dst",{:update=>true,})
+        ##rsync.sync("dst","src",{:update=>true})
+        #p open("./dst/test2.txt", "r").read
+        #p open("./src/test2.txt", "r").read
+        #p FileUtils.cmp("src/test2.txt","dst/test2.txt")
+      #end
+    #end
   puts :END
 end

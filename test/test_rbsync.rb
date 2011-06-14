@@ -248,5 +248,83 @@ class TestRbsync < Test::Unit::TestCase
       end
     end
   end
+  def test_sync_both
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("src")
+        Dir.mkdir("dst")
+        open("./src/test1.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./dst/test2.txt", "w+"){|f| 10.times{f.puts("aaaa")}}
+        rsync = RbSync.new
+        rsync.sync("src","dst",{:update=>true})
+        rsync.sync("dst","src",{:update=>true})
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+      end
+    end
+  end
+  def test_sync_both_twice
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("src")
+        Dir.mkdir("dst")
+        open("./src/test1.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./dst/test2.txt", "w+"){|f| 10.times{f.puts("aaaa")}}
+        rsync = RbSync.new
+        rsync.sync("src","dst",{:update=>true})
+        rsync.sync("dst","src",{:update=>true})
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+        open("./src/test2.txt", "w+"){|f| 10.times{f.puts("bbb")}}
+        File::utime( Time.now+10 , Time.now+10, "./src/test2.txt")# for windows , mtime can not get mili sec 
+        rsync.sync("src","dst",{:update=>true,})
+        rsync.sync("dst","src",{:update=>true})
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+      end
+    end
+  end
+  def test_sync_both_twice_dirty_order
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("src")
+        Dir.mkdir("dst")
+        open("./src/test1.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./dst/test2.txt", "w+"){|f| 10.times{f.puts("aaaa")}}
+        rsync = RbSync.new
+        rsync.sync("src","dst",{:update=>true})
+        rsync.sync("dst","src",{:update=>true})
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+        open("./src/test2.txt", "w+"){|f| 10.times{f.puts("bbb")}}
+        File::utime( Time.now+10 , Time.now+10, "./src/test2.txt")# for windows , mtime can not get mili sec 
+        rsync.sync("dst","src",{:update=>true}) # 
+        rsync.sync("src","dst",{:update=>true,})# 
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+      end
+    end
+  end
+  def test_sync_both_hash
+    Dir.mktmpdir('foo') do |dir|
+      Dir.chdir dir do 
+        Dir.mkdir("src")
+        Dir.mkdir("dst")
+        open("./src/test1.txt", "w+"){|f| 10.times{f.puts("test")}}
+        open("./dst/test2.txt", "w+"){|f| 10.times{f.puts("aaaa")}}
+        rsync = RbSync.new
+        rsync.sync("src","dst",{:check_hash=>true})
+        rsync.sync("dst","src",{:check_hash=>true})
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+        open("./src/test2.txt", "w+"){|f| 10.times{f.puts("bbb")}}
+        File::utime( Time.now+10 , Time.now+10, "./src/test2.txt")# for windows , mtime can not get mili sec 
+        rsync.sync("src","dst",{:check_hash=>true,})# 
+        rsync.sync("dst","src",{:check_hash=>true}) # 
+        assert FileUtils.cmp("src/test1.txt","dst/test1.txt")
+        assert FileUtils.cmp("src/test2.txt","dst/test2.txt")
+      end
+    end
+  end
 
 end
