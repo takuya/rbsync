@@ -94,7 +94,7 @@ class RbSync
       paths.join("/")
     end
     def FileUtils.mkdir_p(e)
-      `mkdir -p "#{e}"`
+      `mkdir -p '#{e}'`
     end
   end
   def initialize()
@@ -375,7 +375,8 @@ class RbSync
             end
             src_size = File.size(e[0]).to_f
             dst_size = File.size(e[1]).to_f
-            next if dst_size == 0 # preven zero divide
+            break if src_size == 0 # preven zero divide
+            next  if dst_size == 0 # preven zero divide
             percent = dst_size/src_size*100
             bar.progress(percent.to_int)
             sleep 0.2
