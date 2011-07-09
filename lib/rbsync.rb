@@ -102,6 +102,8 @@ class RbSync
     @conf[:update] = false
     @conf[:excludes] = []
     @conf[:preserve] = true
+    @conf[:overwrite] = true
+    @conf[:strict] = true
   end
   # collect file paths. paths are relatetive path.
   def find_as_relative(dir_name,excludes=[])
@@ -120,7 +122,7 @@ class RbSync
     }
     files = files.reject{|e| [".",".."].any?{|s| s== File::basename(e)  }}
   end
-  # compare two directory by name and FileUtis,cmp
+  # compare two directory by name and FileUtis.cmp
   def find_files(src,dest,options)
     src_files  = self.find_as_relative(  src, options[:excludes] )
     dest_files = self.find_as_relative( dest, options[:excludes] )
@@ -136,7 +138,12 @@ class RbSync
     same_name_files.reject!{|e|
         #ファイルが同じモノは省く
         FileUtils.cmp( File.expand_path(e,src) , File.expand_path(e,dest) ) 
-    }
+    } if options[:strict]
+    same_name_files.reject!{|e|
+        #ファイルサイズが同じモノを省く（全部比較する代替手段）
+        File.size(File.expand_path(e,src)) == File.size( File.expand_path(e,dest))
+        #&& File.mtime(File.expand_path(e,src)) == File.mtime( File.expand_path(e,dest) )
+    } unless options[:strict]
     if options[:update] then
       same_name_files= same_name_files.select{|e|
           (File.mtime(File.expand_path(e,src)) > File.mtime( File.expand_path(e,dest)))
@@ -252,6 +259,7 @@ class RbSync
   
   # called from sync
   def sync_normally(src,dest,options={})
+    Thread.abort_on_exception = true if self.debug?
     files = self.find_files(src,dest,options)
     puts "同期対象のファイルはありません" if self.debug? && files.size==0
     return true if files.size == 0
@@ -348,8 +356,10 @@ class RbSync
       #main
       copy_thread = Thread.start{
         FileUtils.mkdir_p File.dirname(e[1]) unless File.exists?(File.dirname(e[1]))
+        tmp_name = "#{e[1]}.copy_tmp"
         ## todo copy file as stream for progress
-        FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+        FileUtils.copy( e[0] , tmp_name ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+        FileUtils.mv(tmp_name,e[1])
       }
       
       #progress of each file
@@ -365,21 +375,21 @@ class RbSync
           while(src_size!=dst_size)
             unless File.exists?(e[1]) then
               cnt = cnt + 1
-              if cnt > 10 then
-                puts "copying #{e[1]} timeout error"
+              if cnt > 25 then
+                puts "copying #{e[1]} is terminated.\r\n timeout error"
                 throw Error
                 break
               end
-              sleep 0.05
+              sleep 0.2
               next
             end
             src_size = File.size(e[0]).to_f
             dst_size = File.size(e[1]).to_f
             break if src_size == 0 # preven zero divide
-            next  if dst_size == 0 # preven zero divide
+            # next  if dst_size == 0 # preven zero divide
             percent = dst_size/src_size*100
             bar.progress(percent.to_int)
-            sleep 0.2
+            sleep 0.1
           end
           bar.end("done")
         }
@@ -390,7 +400,8 @@ class RbSync
   end
   def sync(src,dest,options={})
     options[:excludes]        = self.excludes.push(options[:excludes]).flatten.uniq if options[:excludes]
-    options[:update]          = @conf[:update]                                if options[:update] == nil
+    options[:update]          = @conf[:update] if options[:update] == nil
+    options[:strict]          = @conf[:strict] if options[:strict] == nil
     options[:check_hash]      = options[:check_hash] or @conf[:check_hash]
     options[:hash_limit_size] = @conf[:hash_limit_size]                       if options[:hash_limit_size] == nil
     options[:overwrite]       = @conf[:overwrite]                             if options[:overwrite] == nil
