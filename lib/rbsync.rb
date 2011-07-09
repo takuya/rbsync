@@ -79,8 +79,24 @@ require 'fileutils'
 #           rsync.updated_file_only = true
 #           rsync.sync( "src", "dest" )
 #           rsync.sync( "dest", "src" )# swap src to dest , dest to src
+#### TODO: 
+## FileUtils/Dir.chdir をSSH対応に切替える
+## progress 表示のために fileutils.copy を 自作する
 class RbSync
   attr_accessor :conf
+  # for ruby 1.8.7 (2008-08-11 patchlevel 72) [i386-cygwin]
+  # File.dirname  of cygwin doesn't work corrently for JAPANESE hiragana pathname
+  # Cygwinの日本語UTF8/SJIS環境だと「ひらがな」パス名が正しく扱えないのでmonkey patch
+  if ((RUBY_PLATFORM =~ /cygwin/) and RUBY_VERSION == "1.8.7")then
+    def File.dirname(e)
+      paths = e.split("/")
+      paths.pop
+      paths.join("/")
+    end
+    def FileUtils.mkdir_p(e)
+      `mkdir -p "#{e}"`
+    end
+  end
   def initialize()
     @conf ={}
     @conf[:update] = false
@@ -91,11 +107,14 @@ class RbSync
   def find_as_relative(dir_name,excludes=[])
     files =[]
     excludes = [] unless excludes
+    #todo write this two line . exculude initialize test
+    excludes = excludes.split(",") if excludes.class == String
+    excludes = [excludes]          unless excludes.class == Array
+    
     Dir.chdir(dir_name){ 
       files = Dir.glob "./**/*", File::FNM_DOTMATCH
       exclude_files =[]
       exclude_files = excludes.map{|g| Dir.glob "./**/#{g}",File::FNM_DOTMATCH } 
-      #files.each{|e|pp [e, File.directory?(e)]  }
       files = files.reject{|e| File.directory?(e)  }
       files = files - exclude_files.flatten
     }
@@ -169,33 +188,40 @@ class RbSync
   def collet_hash(file_names,basedir,options={})
     #prepare
     require 'thread'
+    self.patch_digest_base
     threads =[]
     output = Hash.new{|s,key| s[key]=[] }
     q      = Queue.new
     limitsize = options[:hash_limit_size]
     # compute digests
     file_names.each{|e| q.push e }
-    5.times{
+    3.times{
       threads.push(
         Thread.start{
           while(!q.empty?)
             name = q.pop
+            #$stdout.puts "reading #{name}" if options[:verbose]
+            #$stdout.flush if options[:verbose]
             hash = compute_digest_file(File.expand_path(name,basedir),limitsize)
             output[hash].push name
           end
         }
       )
     }
+    if options[:verbose] then
+      t = Thread.start{
+          until(q.empty?)
+            puts( "#{q.size}/#{file_names.size}");
+            $stdout.flush;
+            sleep 1;
+          end
+      } 
+      threads.push(t )
+    end
     threads.each{|t|t.join}
     return output
   end
-  # compute digest md5 
-  # ==limitsize
-  #   If file size is very large,
-  #   and a few bytes at head of file is enough to compare.
-  #   for speed-up, Set limit size to enable to avoid reading a whole of file.
-  #   もしファイルがとても巨大で、かつ、先頭の数キロバイトが比較に十分であれば、limitsize 以降をスキップする
-  def compute_digest_file(filename, limitsize=nil)
+  def patch_digest_base()
       require 'digest/md5'
       s = %{
       class Digest::Base
@@ -213,6 +239,14 @@ class RbSync
       end
       }
       eval s
+  end
+  # compute digest md5 
+  # ==limitsize
+  #   If file size is very large,
+  #   and a few bytes at head of file is enough to compare.
+  #   for speed-up, Set limit size to enable to avoid reading a whole of file.
+  #   もしファイルがとても巨大で、かつ、先頭の数キロバイトが比較に十分であれば、limitsize 以降をスキップする
+  def compute_digest_file(filename, limitsize=nil)
       Digest::MD5.open(filename,limitsize).hexdigest
   end
   
@@ -314,8 +348,10 @@ class RbSync
       #main
       copy_thread = Thread.start{
         FileUtils.mkdir_p File.dirname(e[1]) unless File.exists?(File.dirname(e[1]))
+        ## todo copy file as stream for progress
         FileUtils.copy( e[0] , e[1] ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
       }
+      
       #progress of each file
       progress_thread = nil
       if(@conf[:progress])
@@ -324,11 +360,22 @@ class RbSync
           bar.size = 30
           src_size = File.size(e[0])
           dst_size = -1
-          bar.start("copying #{e[0]} to #{e[1]}")
+          bar.start("copying #{e[0]} \r\n   to #{e[1]}")
+          cnt = 0
           while(src_size!=dst_size)
+            unless File.exists?(e[1]) then
+              cnt = cnt + 1
+              if cnt > 10 then
+                puts "copying #{e[1]} timeout error"
+                throw Error
+                break
+              end
+              sleep 0.05
+              next
+            end
             src_size = File.size(e[0]).to_f
             dst_size = File.size(e[1]).to_f
-            break if dst_size == 0
+            next if dst_size == 0 # preven zero divide
             percent = dst_size/src_size*100
             bar.progress(percent.to_int)
             sleep 0.2
@@ -343,7 +390,7 @@ class RbSync
   def sync(src,dest,options={})
     options[:excludes]        = self.excludes.push(options[:excludes]).flatten.uniq if options[:excludes]
     options[:update]          = @conf[:update]                                if options[:update] == nil
-    options[:check_hash]      = options[:check_hash] and @conf[:check_hash]
+    options[:check_hash]      = options[:check_hash] or @conf[:check_hash]
     options[:hash_limit_size] = @conf[:hash_limit_size]                       if options[:hash_limit_size] == nil
     options[:overwrite]       = @conf[:overwrite]                             if options[:overwrite] == nil
     options[:overwrite]       = false                                         if options[:no_overwrite]
