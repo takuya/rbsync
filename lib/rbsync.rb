@@ -95,6 +95,7 @@ class RbSync
     end
     def FileUtils.mkdir_p(e)
       `mkdir -p '#{e}'`
+      `touch '#{e}' -d '#{Time.now}'`
     end
   end
   def initialize()
@@ -137,23 +138,29 @@ class RbSync
     same_name_files = (dest_files & src_files)
     same_name_files.reject!{|e|
         #ファイルが同じモノは省く
+        puts "compare file bin.  #{e}" if self.debug? || self.verbose?
+        $stdout.flush if self.debug?
         FileUtils.cmp( File.expand_path(e,src) , File.expand_path(e,dest) ) 
     } if options[:strict]
     same_name_files.reject!{|e|
         #ファイルサイズが同じモノを省く（全部比較する代替手段）
+        puts "size/mtime compare #{e}" if self.debug? || self.verbose?
         File.size(File.expand_path(e,src)) == File.size( File.expand_path(e,dest))
         #&& File.mtime(File.expand_path(e,src)) == File.mtime( File.expand_path(e,dest) )
     } unless options[:strict]
     if options[:update] then
       same_name_files= same_name_files.select{|e|
+          puts "mtime is newer   #{e}" if self.debug? || self.verbose?
           (File.mtime(File.expand_path(e,src)) > File.mtime( File.expand_path(e,dest)))
       }
     end
     if options[:overwrite] == false then
       same_name_files= same_name_files.reject{|e|
+          puts "can over write?  #{e}" if self.debug? || self.verbose?
           (File.exists?(File.expand_path(e,src)) && File.exists?( File.expand_path(e,dest)))
       }
     end
+    $stdout.flush if self.debug?
     files_not_in_dest = (src_files - dest_files)
     #files
     files =[]
@@ -343,26 +350,30 @@ class RbSync
     self.copy_r(files)
   end
   def copy_r(files)
-    if(@conf[:progress])
-      puts ("copy #{files.size} files")
-      $stdout.flush
-    end
+    #
+    puts ("copy #{files.size} files") if(@conf[:progress])
+    $stdout.flush                     if(@conf[:progress])
+
     files.each_with_index{|e,i|
       #show
-      if(@conf[:progress])
-        puts ("start #{i+1}/#{files.size}")
-        $stdout.flush
-      end
+        puts ("start #{i+1}/#{files.size}")if(@conf[:progress])
+        $stdout.flush if(@conf[:progress])
       #main
+      tmp_name = "#{e[1]}.copy_tmp"
+      FileUtils.rm(tmp_name) if File.exists?(tmp_name)
       copy_thread = Thread.start{
         FileUtils.mkdir_p File.dirname(e[1]) unless File.exists?(File.dirname(e[1]))
-        tmp_name = "#{e[1]}.copy_tmp"
         ## todo copy file as stream for progress
-        FileUtils.copy( e[0] , tmp_name ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
-        FileUtils.mv(tmp_name,e[1])
+        begin
+          FileUtils.copy( e[0] , tmp_name ,{:preserve=>self.preserve?,:verbose=>self.verbose? } )
+          FileUtils.mv(tmp_name,e[1])
+          rescue Errno::EACCES => err
+          puts e[1];puts err
+        end
       }
       
       #progress of each file
+      puts "#{e[0]}" if self.verbose? || self.debug?
       progress_thread = nil
       if(@conf[:progress])
         progress_thread = Thread.start{
@@ -372,8 +383,10 @@ class RbSync
           dst_size = -1
           bar.start("copying #{e[0]} \r\n   to #{e[1]}")
           cnt = 0
+          dst_name = tmp_name
           while(src_size!=dst_size)
-            unless File.exists?(e[1]) then
+            dst_name = e[1] if File.exists?(e[1]) and not File.exists?(tmp_name)
+            unless File.exists?(dst_name) then
               cnt = cnt + 1
               if cnt > 25 then
                 puts "copying #{e[1]} is terminated.\r\n timeout error"
@@ -384,13 +397,17 @@ class RbSync
               next
             end
             src_size = File.size(e[0]).to_f
-            dst_size = File.size(e[1]).to_f
+            dst_size = File.size(dst_name).to_f
             break if src_size == 0 # preven zero divide
             # next  if dst_size == 0 # preven zero divide
             percent = dst_size/src_size*100
             bar.progress(percent.to_int)
-            sleep 0.1
+            sleep 0.6
           end
+          src_size = File.size(e[0]).to_f
+          dst_size = File.size(e[1]).to_f
+          percent = dst_size/src_size*100
+          bar.progress(percent.to_int)
           bar.end("done")
         }
       end
