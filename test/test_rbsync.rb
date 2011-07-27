@@ -144,6 +144,25 @@ class TestRbsync < Test::Unit::TestCase
         end
       end
     end
+  def test_sync_with_rename_twice
+    Dir.mktmpdir('goo') do |dir|
+        Dir.chdir dir do 
+          Dir.mkdir("old")
+          Dir.mkdir("new")
+          open("./old/test.txt", "w+"){|f| 10.times{f.puts("test")}}
+          rsync = RbSync.new
+          rsync.sync("old","new")
+          assert FileUtils.cmp("old/test.txt","new/test.txt") == true
+          open("./old/test.txt", "w+"){|f| 10.times{f.puts("changed")}}
+          rsync.sync("old","new",{:rename => true})
+          rsync.sync("old","new",{:rename => true})
+          rsync.sync("old","new",{:rename => true})
+          rsync.sync("old","new",{:rename => true})
+          assert FileUtils.cmp("old/test.txt","new/test.txt") == false
+          assert FileUtils.cmp("old/test.txt","new/test(1).txt") == true
+        end
+      end
+    end
    def test_sync_with_backup
      Dir.mktmpdir('goo') do |dir|
       Dir.chdir dir do 
