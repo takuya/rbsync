@@ -138,12 +138,14 @@ class RbSync
     same_name_files = (dest_files & src_files)
     same_name_files.reject!{|e|
         #ファイルが同じモノは省く
+        next unless File.exists?( File.expand_path(e,dest))
         puts "compare file bin.  #{e}" if self.debug? || self.verbose?
         $stdout.flush if self.debug?
         FileUtils.cmp( File.expand_path(e,src) , File.expand_path(e,dest) ) 
     } if options[:strict]
     same_name_files.reject!{|e|
         #ファイルサイズが同じモノを省く（全部比較する代替手段）
+        next unless File.exists?( File.expand_path(e,dest))
         puts "size/mtime compare #{e}" if self.debug? || self.verbose?
         File.size(File.expand_path(e,src)) == File.size( File.expand_path(e,dest))
         #&& File.mtime(File.expand_path(e,src)) == File.mtime( File.expand_path(e,dest) )
